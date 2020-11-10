@@ -53,21 +53,21 @@ strchr(const char *s, char c)
 }
 
 char*
-gets(char *buf, int max)
+gets(char *buf, int max)  //从标准读端口读取一行命令
 {
   int i, cc;
   char c;
 
   for(i=0; i+1 < max; ){
-    cc = read(0, &c, 1);
-    if(cc < 1)
+    cc = read(0, &c, 1); //从标准读端口读入一个字符
+    if(cc < 1)  //读取失败
       break;
-    buf[i++] = c;
-    if(c == '\n' || c == '\r')
+    buf[i++] = c;   //填入缓冲区
+    if(c == '\n' || c == '\r')  //如果读到回车，说明该条命令结束
       break;
   }
   buf[i] = '\0';
-  return buf;
+  return buf;   //读取结束，返回填充后的缓冲区
 }
 
 int
