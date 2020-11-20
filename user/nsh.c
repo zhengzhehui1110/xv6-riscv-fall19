@@ -1,102 +1,27 @@
-// #include "kernel/types.h"
-// #include "user/user.h"
-// #include "kernel/fcntl.h"
-
-// #define MAXARGS 10
-
-// #define EXEC  1
-// #define REDIR 2
-// #define PIPE  3
-
-// struct cmd {
-//   int type;
-// };
-
-// struct execcmd {
-//   int type;
-//   char *argv[MAXARGS];
-//   char *eargv[MAXARGS];
-// };
-
-// struct redircmd {
-//   int type;
-//   struct cmd *cmd;
-//   char *file;
-//   char *efile;
-//   int mode;
-//   int fd;
-// };
-
-// struct pipecmd {
-//   int type;
-//   struct cmd *left;
-//   struct cmd *right;
-// };
-
-
-
-
-
-
-
-
-// int main(void)
-// {
-//   static char buf[100];
-//   int fd;
-
-//   // Ensure that three file descriptors are open.
-//   while((fd = open("console", O_RDWR)) >= 0){
-//     if(fd >= 3){
-//       close(fd);
-//       break;
-//     }
-//   }
-
-//   // Read and run input commands.
-//   while(getcmd(buf, sizeof(buf)) >= 0){  //读入一行命令
-//     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){ //如果该命令是cd
-//       // Chdir must be called by the parent, not the child.
-//       buf[strlen(buf)-1] = 0;  // chop \n
-//       if(chdir(buf+3) < 0)  //判断cd后面要打开的目录名能不能打开
-//         fprintf(2, "cannot cd %s\n", buf+3);
-//       continue;
-//     }
-//     if(fork1() == 0)  //创建一个子进程
-//       runcmd(parsecmd(buf));
-//     wait(0);
-//   }
-//   exit(0);
-// }
-
 #include "kernel/types.h"
 #include "user/user.h"
 #include "kernel/fcntl.h"
  
 void execPipe(char*argv[],int argc);
-//*****************START  from sh.c *******************
- 
- 
+
 #define MAXARGS 10
 #define MAXWORD 30
 #define MAXLINE 100
  
-int getcmd(char *buf, int nbuf)  //从脚本读入一行命令
+int getcmd(char *buf, int nbuf)  //功能：从脚本读入一行命令，取自sh.c
 {
-    fprintf(2, "@ ");
+    fprintf(2, "@ "); //使用fprintf(2，…)将错误和调试消息打印到文件描述符2，即标准错误
     memset(buf, 0, nbuf);
     gets(buf, nbuf);
     if (buf[0] == 0) // EOF
         return -1;
     return 0;
 }
-char whitespace[] = " \t\r\n\v";
+char whitespace[] = " \t\r\n\v";  //可忽略的字符
 char args[MAXARGS][MAXWORD];  //参数表
- 
-//*****************END  from sh.c ******************
-void setargs(char *cmd, char* argv[],int* argc)
+
+void setargs(char *cmd, char* argv[],int* argc) //功能：让argv的每一个元素都指向args的每一行
 {
-    // 让argv的每一个元素都指向args的每一行
     for(int i=0;i<MAXARGS;i++){
         argv[i]=&args[i][0];
     }
@@ -121,38 +46,32 @@ void setargs(char *cmd, char* argv[],int* argc)
     *argc=i;
 }
  
-// void runcmd(char *cmd)
-void runcmd(char*argv[],int argc)
+void runcmd(char*argv[],int argc) //功能：递归地执行命令
 {
-    for(int i=1;i<argc;i++){
+    for(int i = 1;i < argc;i++){
         if(!strcmp(argv[i],"|")){
-            // 如果遇到 | 则用管道将两侧的输出输入端连接
-            execPipe(argv,argc);
+            execPipe(argv,argc);// 如果遇到 | 则用管道将两侧的输出输入端连接
         }
     }
     // 此时一行命令已经被拆分为由‘|‘分割的若干子命令
-    for(int i=1;i<argc;i++){
-        // 如果遇到 > ，说明需要执行输出重定向，首先需要关闭stdout
-        if(!strcmp(argv[i],">")){
-            close(1);
-            // 此时需要把输出重定向到后面给出的文件名对应的文件里
-            // 当然如果>是最后一个，那就会error，不过暂时先不考虑
+    for(int i = 1;i < argc;i++){
+        if(!strcmp(argv[i],">")){  // 如果遇到 > ，说明需要执行输出重定向
+            close(1); //关闭标准输出端
+            // 把输出重定向到后面给出的文件名对应的文件里
             open(argv[i+1],O_CREATE|O_WRONLY);  //如果文件不存在则创建，如果存在则打开
-            argv[i]=0;
-            // break;
+            argv[i] = 0;  //遇到>说明前面的命令和参数已经读入完毕，所以参数表末尾设置标志位
         }
         if(!strcmp(argv[i],"<")){
             // 如果遇到< ,需要执行输入重定向，关闭stdin
             close(0);
             open(argv[i+1],O_RDONLY);
             argv[i]=0;
-            // break;
         }
     }
-    exec(argv[0], argv);  //重定向完成后，可以开始执行命令了
+    exec(argv[0], argv);
 }
  
-void execPipe(char*argv[],int argc){
+void execPipe(char*argv[],int argc){  //功能：在|左右两个进程之间创建管道
     int i=0;  //子命令中的参数个数
     // 首先找到命令中的"|",然后把他换成'\0'
     // 从前到后，找到第一个|
@@ -181,6 +100,7 @@ void execPipe(char*argv[],int argc){
         runcmd(argv+i+1,argc-i-1);  //递归执行子命令
     }
 }
+
 int main()
 {
     char buf[MAXLINE];
@@ -197,6 +117,5 @@ int main()
         }
         wait(0);
     }
- 
     exit(0);
 }
