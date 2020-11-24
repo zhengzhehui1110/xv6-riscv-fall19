@@ -23,14 +23,21 @@
 #include "fs.h"
 #include "buf.h"
 
+#define NBUCKETS 13
+
 struct {
-  struct spinlock lock;
+  struct spinlock lock[NBUCKETS];
   struct buf buf[NBUF];
 
   // Linked list of all buffers, through prev/next.
   // head.next is most recently used.
-  struct buf head;
+  struct buf hashbucket[NBUCKETS];
 } bcache;
+
+
+int bhash(int blockno){
+  return blockno % NBUCKETS; //取模，确定要找的哈希桶的编号
+}
 
 void
 binit(void)
