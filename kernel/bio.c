@@ -70,7 +70,7 @@ binit(void)
 // If not found, allocate a buffer.
 // In either case, return locked buffer.
 static struct buf*
-bget(uint dev, uint blockno)
+bget(uint dev, uint blockno)   //申请指定的内存块
 {
   struct buf *b;
   int h = bhash(blockno);
@@ -91,20 +91,20 @@ bget(uint dev, uint blockno)
   //此时对应的哈希桶的锁还不能打开
   //因为要等待进程在别的桶中找到内存块，再放回这个桶内
   // Not cached; recycle an unused buffer.
-  int nh = (h+1)%NBUCKETS;
+  int nh = (h+1)%NBUCKETS;  //从当前的下一个哈希桶开始找
   while (nh != h)
   {
-    acquire(&bcache.lock[nh]);
+    acquire(&bcache.lock[nh]); //每找一个桶都要先占用该桶
     for(b = bcache.hashbucket[nh].prev; b != &bcache.hashbucket[nh];b = b->prev){
-      if(b->refcnt == 0) {
+      if(b->refcnt == 0) {  //如果找到
         b->dev = dev;
         b->blockno = blockno;
         b->valid = 0;
         b->refcnt = 1;
-        b->next->prev = b->prev;
+        b->next->prev = b->prev;  //从当前所在的桶中取出该内存块
         b->prev->next = b->next;
         release(&bcache.lock[nh]);
-        b->next = bcache.hashbucket[h].next;
+        b->next = bcache.hashbucket[h].next; //放入正确的哈希桶的链表顶部
         b->prev = &bcache.hashbucket[h];
         bcache.hashbucket[h].next->prev = b;
         bcache.hashbucket[h].next = b;
