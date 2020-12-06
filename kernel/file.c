@@ -16,9 +16,10 @@
 struct devsw devsw[NDEV];
 struct {
   struct spinlock lock;
-  struct file file[NFILE];
+  //struct file file[NFILE];
 } ftable;
-
+//原本的工作原理：遍历file数组，直到找到一个ref为0的内存块，
+//占用该内存块，返回该内存块的描述符
 void
 fileinit(void)
 {
@@ -32,12 +33,12 @@ filealloc(void)
   struct file *f;
 
   acquire(&ftable.lock);
-  for(f = ftable.file; f < ftable.file + NFILE; f++){
-    if(f->ref == 0){
-      f->ref = 1;
-      release(&ftable.lock);
-      return f;
-    }
+  f = bd_malloc(sizeof(struct file));   //动态申请一个内存块
+  if(f){  //如果能申请成功
+    memset(f,0,sizeof(struct file));  //初始化内存空间
+    f->ref = 1;  //标记该块已被占用
+    release(&ftable.lock);
+    return f;
   }
   release(&ftable.lock);
   return 0;
@@ -71,11 +72,13 @@ fileclose(struct file *f)
   ff = *f;
   f->ref = 0;
   f->type = FD_NONE;
+  bd_free(f);  //释放该内存块
   release(&ftable.lock);
 
   if(ff.type == FD_PIPE){
     pipeclose(ff.pipe, ff.writable);
-  } else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
+  } 
+  else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
     begin_op(ff.ip->dev);
     iput(ff.ip);
     end_op(ff.ip->dev);
